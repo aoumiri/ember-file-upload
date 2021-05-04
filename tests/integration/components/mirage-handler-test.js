@@ -61,23 +61,21 @@ module('Integration | Component | mirage-handler', function(hooks) {
   };
   for (let [type, file] of Object.entries(SCENARIOS)) {
     test(`upload handler throws if invalid ${type} is provided`, async function(assert) {
-      let errorCount = 0;
+      const errorsThrown = [];
       setupOnerror((error) => {
         // expect two errors:
-        // 1. error thrown by our upload handler
-        // 2. error thrown by 500 response that includes the first error as body
-        if (errorCount === 0) {
+        // * error thrown by our upload handler
+        // * error thrown by 500 response that includes the first error as body
+        if (error.message) {
           // error thrown by our mirage handler
-          assert.step('error thrown');
+          errorsThrown.push('handler error');
           assert.ok(error.message.includes(`invalid ${type}`));
-        } else {
+        } else if (error.status) {
           // error from 500 response
-          assert.step('500 response');
+          errorsThrown.push('500 response');
           assert.equal(error.status, 500);
           assert.ok(error.body.error.includes(`invalid ${type}`));
         }
-
-        errorCount++;
       });
 
       this.server.post('/image', uploadHandler(() => {}));
@@ -98,7 +96,8 @@ module('Integration | Component | mirage-handler', function(hooks) {
 
       await selectFiles('input', file);
 
-      assert.verifySteps(['error thrown', '500 response']);
+      assert.ok(errorsThrown.includes('handler error'), 'handler error thrown');
+      assert.ok(errorsThrown.includes('500 response'), '500 response thrown');
     });
   }
 });
